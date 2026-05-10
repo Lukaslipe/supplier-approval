@@ -16,55 +16,70 @@ def analisar_fornecedor(id: int):
 
     db = SessionLocal()
 
-    fornecedor = db.query(Fornecedor).filter(
-        Fornecedor.id == id
-    ).first()
+    try:
 
-    if not fornecedor:
-        return {"erro": "Fornecedor não encontrado"}
+        fornecedor = db.query(Fornecedor).filter(
+            Fornecedor.id == id
+        ).first()
 
-    ocorrencias = db.query(Ocorrencia).filter(
-        Ocorrencia.fornecedor_id == id
-    ).all()
+        if not fornecedor:
+            return {"erro": "Fornecedor não encontrado"}
 
-    texto_ocorrencias = ""
+        ocorrencias = db.query(Ocorrencia).filter(
+            Ocorrencia.fornecedor_id == id
+        ).all()
 
-    for ocorrencia in ocorrencias:
-        texto_ocorrencias += f"- {ocorrencia.tipo}\n"
+        texto_ocorrencias = ""
 
-    prompt = f"""
-Você é um analista de homologação de fornecedores.
+        for ocorrencia in ocorrencias:
+            texto_ocorrencias += f"- {ocorrencia.tipo}\n"
 
-Gere um parecer corporativo curto e objetivo.
+        prompt = f"""
+            Você é um sistema de análise de risco de fornecedores.
 
-Fornecedor:
-- Razão social: {fornecedor.razao_social}
-- Situação: {fornecedor.situacao}
-- Score: {fornecedor.score}
-- Risco: {fornecedor.risco}
+            REGRAS OBRIGATÓRIAS:
+            - Não use markdown
+            - Não use negrito
+            - Não use tópicos
+            - Não use listas
+            - Não use títulos
+            - Máximo 5 linhas
+            - Texto corrido apenas
+            - Linguagem corporativa objetiva
 
-Ocorrências:
-{texto_ocorrencias}
-"""
+            Formato da resposta:
+            Parecer: <texto único>
 
-    parecer = gerar_parecer(prompt)
+            Fornecedor:
+            - Razão social: {fornecedor.razao_social}
+            - Situação: {fornecedor.situacao}
+            - Score: {fornecedor.score}
+            - Risco: {fornecedor.risco}
 
-    if not parecer:
-        return {"erro": "IA não retornou parecer"}
+            Ocorrências:
+            {texto_ocorrencias}
+        """
 
-    nova_analise = AnaliseIA(
-        fornecedor_id=id,
-        parecer=parecer
-    )
+        parecer = gerar_parecer(prompt)
 
-    db.add(nova_analise)
+        if not parecer:
+            return {"erro": "IA não retornou parecer"}
 
-    db.commit()
+        nova_analise = AnaliseIA(
+            fornecedor_id=id,
+            parecer=parecer
+        )
 
-    return {
-        "fornecedor": fornecedor.razao_social,
-        "parecer": parecer
-    }
+        db.add(nova_analise)
+
+        db.commit()
+
+        return {
+            "fornecedor": fornecedor.razao_social,
+            "parecer": parecer
+        }
+    finally:
+        db.close()
 
 @router.get(
     "/fornecedores/{id}/analises-ia",
