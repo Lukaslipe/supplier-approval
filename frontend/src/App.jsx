@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import Fornecedores from "./pages/Fornecedores";
 import FornecedorDetalhe from "./pages/FornecedorDetalhe";
 import NovoFornecedor from "./pages/NovoFornecedor";
+import Dashboard from "./pages/Dashboard";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 
@@ -46,6 +47,11 @@ function App() {
 
           <Route
             path="/"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/fornecedores"
             element={<Fornecedores />}
           />
 
