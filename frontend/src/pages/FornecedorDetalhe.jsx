@@ -40,7 +40,61 @@ function FornecedorDetalhe() {
   const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
   const [impactoOcorrencia, setImpactoOcorrencia] = useState("");
 
+  const [aprovacoes, setAprovacoes] = useState({
+    rh: "Pendente",
+    juridico: "Pendente",
+    compras: "Pendente"
+  });
+
   const [aba, setAba] = useState("overview");
+
+  function statusClass(status) {
+
+    if (status === "Aprovado") {
+      return "bg-green-100 text-green-700 border-green-200";
+    }
+
+    if (status === "Pendente") {
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    }
+
+    return "bg-red-100 text-red-700 border-red-200";
+  }
+
+  async function salvarAprovacao(setor, status) {
+    try {
+      await api.post(`/fornecedores/${id}/aprovacao`, {
+        setor,
+        status
+      });
+
+      await carregarAprovacoes();
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function carregarAprovacoes() {
+    try {
+      const response = await api.get(`/fornecedores/${id}/aprovacoes`);
+
+      const dados = {
+        rh: "Pendente",
+        juridico: "Pendente",
+        compras: "Pendente"
+      };
+
+      response.data.forEach((item) => {
+        dados[item.setor.toLowerCase()] = item.status;
+      });
+
+      setAprovacoes(dados);
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   function riscoClass(risco) {
 
@@ -216,6 +270,7 @@ function FornecedorDetalhe() {
     carregarAnalises();
     carregarOcorrencias();
     carregarHistoricoScore();
+    carregarAprovacoes();
 
   }, []);
   
@@ -563,7 +618,7 @@ function FornecedorDetalhe() {
 
       {aba === "overview" && (
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
           {/* GRAFICO */}
 
@@ -609,9 +664,132 @@ function FornecedorDetalhe() {
 
           </div>
 
+          {/* APROVAÇÕES */}
+          <div className="lg:col-span-1 bg-white rounded-3xl border border-gray-200 shadow-sm p-5">
+
+            <div className="flex items-center gap-2 mb-5">
+              <ShieldAlert className="w-5 h-5 text-gray-700" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Homologação
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+
+              {/* RH */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-sm">RH</p>
+
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClass(aprovacoes.rh)}`}>
+                    {aprovacoes.rh}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => salvarAprovacao("rh", "Aprovado")}
+                    className="flex-1 text-xs py-1.5 bg-green-500 text-white rounded-lg cursor-pointer hover:bg-green-600 active:scale-95 transition"
+                  >
+                    Aprovar
+                  </button>
+
+                  <button
+                    onClick={() => salvarAprovacao("rh", "Reprovado")}
+                    className="flex-1
+                      text-xs
+                      py-1.5
+                      bg-red-500
+                      text-white
+                      rounded-lg
+                      cursor-pointer
+                      hover:bg-red-600
+                      active:scale-95
+                      transition"
+                  >
+                    Reprovar
+                  </button>
+                </div>
+              </div>
+
+              {/* Jurídico */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-sm">Jurídico</p>
+
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClass(aprovacoes.juridico)}`}>
+                    {aprovacoes.juridico}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => salvarAprovacao("juridico", "Aprovado")}
+                    className="flex-1 text-xs py-1.5 bg-green-500 text-white rounded-lg cursor-pointer hover:bg-green-600 active:scale-95 transition"
+                  >
+                    Aprovar
+                  </button>
+
+                  <button
+                    onClick={() => salvarAprovacao("juridico", "Reprovado")}
+                    className="flex-1
+                      text-xs
+                      py-1.5
+                      bg-red-500
+                      text-white
+                      rounded-lg
+                      cursor-pointer
+                      hover:bg-red-600
+                      active:scale-95
+                      transition"
+                  >
+                    Reprovar
+                  </button>
+                </div>
+              </div>
+
+              {/* Compras */}
+              <div className="bg-gray-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-sm">Compras</p>
+
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${statusClass(aprovacoes.compras)}`}>
+                    {aprovacoes.compras}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => salvarAprovacao("compras", "Aprovado")}
+                    className="flex-1 text-xs py-1.5 bg-green-500 text-white rounded-lg cursor-pointer hover:bg-green-600 active:scale-95 transition"
+                  >
+                    Aprovar
+                  </button>
+
+                  <button
+                    onClick={() => salvarAprovacao("compras", "Reprovado")}
+                    className="flex-1
+                      text-xs
+                      py-1.5
+                      bg-red-500
+                      text-white
+                      rounded-lg
+                      cursor-pointer
+                      hover:bg-red-600
+                      active:scale-95
+                      transition"
+                  >
+                    Reprovar
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           {/* IA */}
 
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+          <div className="lg:col-span-1 bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
 
             <div className="flex items-center justify-between mb-6">
 
@@ -888,7 +1066,9 @@ function FornecedorDetalhe() {
                 rounded-2xl
               "
             >
-              Gerar nova análise
+              {loadingIA
+                  ? "Gerando..."
+                  : "Gerar"}
             </button>
 
           </div>
