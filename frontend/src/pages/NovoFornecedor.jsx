@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 function limparCNPJ(valor) {
   return valor.replace(/\D/g, "");
@@ -28,6 +29,7 @@ function NovoFornecedor() {
   async function consultarCNPJ() {
 
     setErro("");
+    setFornecedor(null);
 
     if (!cnpj || cnpj.trim() === "") {
       setErro("Informe um CNPJ");
@@ -53,32 +55,63 @@ function NovoFornecedor() {
 
     } catch (error) {
 
-    console.error(error);
+      console.error(error);
 
-    if (error.response?.status === 409) {
+      if (error.response?.status === 400) {
+        setErro("Erro ao consultar CNPJ");
+        toast.error("Erro ao consultar CNPJ");
+      } else {
+        setErro("Erro inesperado");
+        toast.error("Erro inesperado ao consultar CNPJ");
+      }
 
-      setErro("Fornecedor já cadastrado");
-
-    } else if (error.response?.status === 400) {
-
-      setErro("Erro ao consultar CNPJ");
-
-    } else {
-
-      setErro("Erro inesperado");
-
-    }
-
-  } finally {
+    } finally {
       setLoading(false);
     }
   }
 
-  async function irParaFornecedor(id) {
+  async function cadastrarFornecedor() {
 
-    navigate(`/fornecedor/${id}`);
+  try {
+
+    setLoading(true);
+
+    const response = await api.post(
+      "/fornecedores",
+      fornecedor.fornecedor
+    );
+
+    toast.success("Fornecedor cadastrado com sucesso");
+
+    setTimeout(() => {
+
+      navigate(
+        `/fornecedor/${response.data.fornecedor.id}`
+      );
+
+    }, 1200);
+
+  } catch (error) {
+
+    console.error(error);
+
+    if (error.response?.status === 409) {
+
+      toast.error("Fornecedor já cadastrado");
+
+    } else {
+
+      toast.error("Erro ao cadastrar fornecedor");
+
+    }
+
+  } finally {
+
+    setLoading(false);
 
   }
+
+}
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -126,14 +159,20 @@ function NovoFornecedor() {
       </div>
 
       {erro && (
-        <p className="text-sm text-red-500 mt-2">
+        <p className="text-sm text-red-500 mb-4">
           {erro}
         </p>
       )}
-      
+
       {fornecedor && fornecedor.fornecedor && (
 
         <div className="border rounded-xl p-5 bg-gray-50">
+
+          {fornecedor.ja_cadastrado && (
+            <div className="mb-4 text-amber-600 text-sm font-medium">
+              Fornecedor já cadastrado
+            </div>
+          )}
 
           <h3 className="text-lg font-semibold text-gray-800">
             {fornecedor.fornecedor.razao_social}
@@ -151,22 +190,46 @@ function NovoFornecedor() {
             Risco: {fornecedor.fornecedor.risco}
           </p>
 
-          <button
-            onClick={() =>
-              irParaFornecedor(fornecedor.fornecedor.id)
-            }
-            className="
-              mt-4
-              bg-green-600
-              hover:bg-green-700
-              text-white
-              px-4
-              py-2
-              rounded-xl
-            "
-          >
-            Acessar fornecedor
-          </button>
+          {fornecedor.ja_cadastrado ? (
+
+            <button
+              onClick={() =>
+                navigate(
+                  `/fornecedor/${fornecedor.fornecedor.id}`
+                )
+              }
+              className="
+                mt-4
+                bg-green-600
+                hover:bg-green-700
+                text-white
+                px-4
+                py-2
+                rounded-xl
+              "
+            >
+              Acessar fornecedor
+            </button>
+
+          ) : (
+
+            <button
+              onClick={cadastrarFornecedor}
+              disabled={loading}
+              className="
+                mt-4
+                bg-blue-600
+                hover:bg-blue-700
+                text-white
+                px-4
+                py-2
+                rounded-xl
+              "
+            >
+              Confirmar cadastro
+            </button>
+
+          )}
 
         </div>
 
