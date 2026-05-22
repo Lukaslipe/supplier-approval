@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+import re
+
+from fastapi import APIRouter, HTTPException, status
 from app.services.receita_ws import consultar_cnpj
 
 from app.database import SessionLocal
@@ -14,26 +16,30 @@ def buscar_cnpj(cnpj: str):
     db = SessionLocal() 
 
     try: 
+        cnpj_limpo = limpar_cnpj(cnpj)
 
         fornecedor_existente = db.query(Fornecedor).filter(
-            Fornecedor.cnpj == cnpj
+            Fornecedor.cnpj == cnpj_limpo
         ).first()
 
         if fornecedor_existente:
-            return {
-                "message": "Fornecedor já cadastrado",
-                "fornecedor": fornecedor_existente
-            }
+            raise HTTPException(
+                status_code=409,
+                detail="Fornecedor já cadastrado"
+            )
 
-        dados = consultar_cnpj(cnpj)
+        dados = consultar_cnpj(cnpj_limpo)
 
         if not dados:
-            return {"erro": "Erro ao consultar CNPJ"}
+            raise HTTPException(
+                status_code=400,
+                detail="Erro ao consultar CNPJ"
+            )
 
         score = gerar_score(dados)
 
         novo_fornecedor = Fornecedor(
-            cnpj=dados.get("cnpj"),
+            cnpj=limpar_cnpj(dados.get("cnpj")),
             razao_social=dados.get("nome"),
             nome_fantasia=dados.get("fantasia"),
             situacao=dados.get("situacao"),
@@ -54,6 +60,7 @@ def buscar_cnpj(cnpj: str):
         db.refresh(novo_fornecedor)
 
         return {
+            "status": status.HTTP_201_CREATED,
             "message": "Fornecedor cadastrado com sucesso",
             "fornecedor": novo_fornecedor
         }
@@ -85,8 +92,14 @@ def buscar_fornecedor(id: int):
         ).first()
 
         if not fornecedor:
-            return {"erro": "Fornecedor não encontrado"}
+            raise HTTPException(
+                status_code=404,
+                detail="Fornecedor não encontrado"
+            )
 
         return fornecedor
     finally:
         db.close()
+
+def limpar_cnpj(cnpj: str):
+    return re.sub(r"\D", "", cnpj)

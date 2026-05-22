@@ -53,10 +53,23 @@ function NovoFornecedor() {
 
     } catch (error) {
 
-      console.error(error);
+    console.error(error);
+
+    if (error.response?.status === 409) {
+
+      setErro("Fornecedor já cadastrado");
+
+    } else if (error.response?.status === 400) {
+
       setErro("Erro ao consultar CNPJ");
 
-    } finally {
+    } else {
+
+      setErro("Erro inesperado");
+
+    }
+
+  } finally {
       setLoading(false);
     }
   }
