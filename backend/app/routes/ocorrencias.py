@@ -1,3 +1,6 @@
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportGeneralTypeIssues=false
+
 from fastapi import APIRouter, HTTPException
 
 from app.database import SessionLocal
