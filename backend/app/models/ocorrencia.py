@@ -12,3 +12,6 @@ class Ocorrencia(Base):
     descricao = Column(String)
 
     impacto = Column(Integer, default=10)
+
+    score_antes = Column(Integer)
+    score_depois = Column(Integer)

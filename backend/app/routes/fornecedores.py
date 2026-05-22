@@ -2,6 +2,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.models.ocorrencia import Ocorrencia
 from app.services.receita_ws import consultar_cnpj
 
 from app.database import SessionLocal
@@ -119,6 +120,7 @@ def cadastrar_fornecedor(payload: dict):
             uf=payload.get("uf"),
             cnae=payload.get("cnae"),
             score=payload.get("score"),
+            score_base=payload.get("score"),
             risco=payload.get("risco")
         )
 
@@ -176,6 +178,56 @@ def buscar_fornecedor(id: int):
             )
 
         return fornecedor
+
+    finally:
+        db.close()
+
+@router.get("/fornecedores/{fornecedor_id}/historico-score")
+def historico_score(fornecedor_id: int):
+
+    db = SessionLocal()
+
+    try:
+
+        fornecedor = db.query(Fornecedor).filter(
+            Fornecedor.id == fornecedor_id
+        ).first()
+
+        if not fornecedor:
+            raise HTTPException(
+                status_code=404,
+                detail="Fornecedor não encontrado"
+            )
+
+        ocorrencias = db.query(Ocorrencia).filter(
+            Ocorrencia.fornecedor_id == fornecedor_id
+        ).order_by(Ocorrencia.id.asc()).all()
+
+        historico = []
+
+        if ocorrencias:
+
+            historico.append({
+                "label": "Score inicial",
+                "score": ocorrencias[0].score_antes
+            })
+
+            for ocorrencia in ocorrencias:
+
+                historico.append({
+                    "label": ocorrencia.tipo,
+                    "score": ocorrencia.score_depois,
+                    "impacto": ocorrencia.impacto
+                })
+
+        else:
+
+            historico.append({
+                "label": "Score inicial",
+                "score": fornecedor.score
+            })
+
+        return historico
 
     finally:
         db.close()

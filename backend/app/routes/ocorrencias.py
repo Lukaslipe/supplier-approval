@@ -40,79 +40,33 @@ def criar_ocorrencia(ocorrencia: OcorrenciaCreate):
                 detail="Fornecedor não encontrado"
             )
 
-        # cria ocorrência
+        if ocorrencia.impacto < 0 or ocorrencia.impacto > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Impacto deve estar entre 0 e 100"
+            )
+
+        score_antes = fornecedor.score
+
+        novo_score = fornecedor.score - ocorrencia.impacto
+
+        if novo_score < 0:
+            novo_score = 0
+
         nova_ocorrencia = Ocorrencia(
             fornecedor_id=ocorrencia.fornecedor_id,
             tipo=ocorrencia.tipo,
             descricao=ocorrencia.descricao,
-            impacto=ocorrencia.impacto
+            impacto=ocorrencia.impacto,
+            score_antes=score_antes,
+            score_depois=novo_score
         )
 
         db.add(nova_ocorrencia)
-        db.flush()
 
-        # atualiza score e risco
-        fornecedor.score -= ocorrencia.impacto
+        fornecedor.score = novo_score
+        fornecedor.risco = definir_risco(novo_score)
 
-        if fornecedor.score < 0:
-            fornecedor.score = 0
-
-        fornecedor.risco = definir_risco(fornecedor.score)
-
-        # salva estado atualizado
-        db.commit()
-
-        db.refresh(fornecedor)
-
-        # busca ocorrências atualizadas
-        todas_ocorrencias = db.query(Ocorrencia).filter(
-            Ocorrencia.fornecedor_id == fornecedor.id
-        ).all()
-
-        texto_ocorrencias = ""
-
-        for o in todas_ocorrencias:
-            texto_ocorrencias += (
-                f"- {o.tipo}: {o.descricao or ''} "
-                f"(impacto {o.impacto})\n"
-            )
-
-        # prompt IA
-        prompt = f"""
-            Você é um sistema de análise de risco de fornecedores.
-
-            REGRAS OBRIGATÓRIAS:
-            - Não use markdown
-            - Não use negrito
-            - Não use tópicos
-            - Não use listas
-            - Não use títulos
-            - Máximo 5 linhas
-            - Texto corrido apenas
-            - Linguagem corporativa objetiva
-
-            Formato da resposta:
-            Parecer: <texto único>
-
-            Fornecedor:
-            - Nome: {fornecedor.razao_social}
-            - Score: {fornecedor.score}
-            - Risco: {fornecedor.risco}
-
-            Ocorrências:
-            {texto_ocorrencias}
-            """
-
-        # gera IA
-        parecer = gerar_parecer(prompt)
-
-        # salva análise
-        nova_analise = AnaliseIA(
-            fornecedor_id=fornecedor.id,
-            parecer=parecer
-        )
-
-        db.add(nova_analise)
         db.commit()
 
         db.refresh(nova_ocorrencia)

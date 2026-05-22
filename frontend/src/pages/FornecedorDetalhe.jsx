@@ -1,5 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+
+import {
+  AlertTriangle,
+  Brain,
+  Building2,
+  FileWarning,
+  MapPin,
+  ShieldAlert,
+  TrendingDown,
+} from "lucide-react";
+
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 
 import api from "../services/api";
 
@@ -9,25 +30,65 @@ function FornecedorDetalhe() {
 
   const [fornecedor, setFornecedor] = useState(null);
   const [analises, setAnalises] = useState([]);
+  const [ocorrencias, setOcorrencias] = useState([]);
+  const [chartData, setChartData] = useState([]);
+
   const [loadingIA, setLoadingIA] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(false);
+
   const [tipoOcorrencia, setTipoOcorrencia] = useState("");
   const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
   const [impactoOcorrencia, setImpactoOcorrencia] = useState("");
-  const [ocorrencias, setOcorrencias] = useState([]);
-  const [globalLoading, setGlobalLoading] = useState(false);
-  const [ocorrenciaSelecionada, setOcorrenciaSelecionada] = useState(null);
+
+  const [aba, setAba] = useState("overview");
 
   function riscoClass(risco) {
 
     if (risco === "Baixo") {
-      return "bg-green-100 text-green-700";
+      return "bg-green-100 text-green-700 border-green-200";
     }
 
     if (risco === "Médio") {
-      return "bg-yellow-100 text-yellow-700";
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
     }
 
-    return "bg-red-100 text-red-700";
+    return "bg-red-100 text-red-700 border-red-200";
+  }
+
+  function riscoBarClass(risco) {
+
+    if (risco === "Baixo") {
+      return "bg-green-500";
+    }
+
+    if (risco === "Médio") {
+      return "bg-yellow-500";
+    }
+
+    return "bg-red-500";
+  }
+
+  async function carregarHistoricoScore() {
+
+    try {
+
+      const response = await api.get(
+        `/fornecedores/${id}/historico-score`
+      );
+
+      const data = response.data.map(item => ({
+        nome: item.label,
+        score: Number(item.score) || 0
+      }));
+
+      setChartData(data);
+
+    } catch (error) {
+
+      console.error(error);
+
+    }
+
   }
 
   async function carregarFornecedor() {
@@ -64,32 +125,6 @@ function FornecedorDetalhe() {
 
   }
 
-  async function gerarAnaliseIA() {
-
-    try {
-
-      setGlobalLoading(true);
-
-      await api.post(
-        `/fornecedores/${id}/analise-ia`
-      );
-
-      await carregarAnalises();
-      await carregarFornecedor();
-      await carregarOcorrencias();
-
-    } catch (error) {
-
-      console.error(error);
-
-    } finally {
-
-      setGlobalLoading(false);
-
-    }
-
-  }
-
   async function carregarOcorrencias() {
 
     try {
@@ -108,24 +143,33 @@ function FornecedorDetalhe() {
 
   }
 
+  async function gerarAnaliseIA() {
+
+    try {
+
+      setLoadingIA(true);
+
+      await api.post(
+        `/fornecedores/${id}/analise-ia`
+      );
+
+      await carregarAnalises();
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoadingIA(false);
+
+    }
+
+  }
+
   async function adicionarOcorrencia() {
 
     if (!tipoOcorrencia) {
-      return;
-    }
-
-    if (
-      impactoOcorrencia === "" ||
-      isNaN(Number(impactoOcorrencia))
-    ) {
-      setErro("Informe um impacto válido");
-      return;
-    }
-
-    const impacto = Number(impactoOcorrencia);
-
-    if (impacto < 0 || impacto > 100) {
-      setErro("Impacto deve estar entre 0 e 100");
       return;
     }
 
@@ -147,17 +191,20 @@ function FornecedorDetalhe() {
 
       setTipoOcorrencia("");
       setDescricaoOcorrencia("");
-      setImpactoOcorrencia(10);
+      setImpactoOcorrencia("");
 
+      await carregarFornecedor();
       await carregarOcorrencias();
       await carregarAnalises();
-      await carregarFornecedor()
-
-      setGlobalLoading(false);
+      await carregarHistoricoScore();
 
     } catch (error) {
 
       console.error(error);
+
+    } finally {
+
+      setGlobalLoading(false);
 
     }
 
@@ -168,404 +215,756 @@ function FornecedorDetalhe() {
     carregarFornecedor();
     carregarAnalises();
     carregarOcorrencias();
+    carregarHistoricoScore();
 
   }, []);
-
+  
   if (!fornecedor) {
 
     return (
-      <div>
-        Carregando...
+
+      <div className="space-y-4">
+
+        <div className="h-52 bg-gray-200 animate-pulse rounded-3xl"></div>
+
+        <div className="grid grid-cols-4 gap-4">
+
+          <div className="h-32 bg-gray-200 animate-pulse rounded-3xl"></div>
+          <div className="h-32 bg-gray-200 animate-pulse rounded-3xl"></div>
+          <div className="h-32 bg-gray-200 animate-pulse rounded-3xl"></div>
+          <div className="h-32 bg-gray-200 animate-pulse rounded-3xl"></div>
+
+        </div>
+
       </div>
+
     );
 
   }
 
   return (
+
     <div className="space-y-6">
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      {/* HERO */}
 
-        <div className="flex items-start justify-between">
+      <div className="bg-white border border-gray-200 rounded-3xl shadow-sm overflow-hidden">
 
-          <div>
+        <div className="p-8">
 
-            <h1 className="text-2xl font-bold text-gray-800">
-              {fornecedor.razao_social}
-            </h1>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
 
-            <p className="text-gray-500 mt-1">
-              {fornecedor.cnpj}
-            </p>
+            {/* ESQUERDA */}
+
+            <div className="flex items-start gap-5">
+
+              <div className="
+                w-16
+                h-16
+                rounded-2xl
+                bg-gray-100
+                flex
+                items-center
+                justify-center
+              ">
+
+                <Building2 className="w-8 h-8 text-gray-700" />
+
+              </div>
+
+              <div>
+
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {fornecedor.razao_social}
+                </h1>
+
+                <p className="text-gray-500 mt-1">
+                  {fornecedor.cnpj}
+                </p>
+
+                <div className="flex items-center gap-2 mt-4">
+
+                  <span className={`
+                    px-4
+                    py-2
+                    rounded-full
+                    border
+                    text-sm
+                    font-semibold
+                    ${riscoClass(fornecedor.risco)}
+                  `}>
+
+                    {fornecedor.risco}
+
+                  </span>
+
+                  <span className="
+                    px-4
+                    py-2
+                    rounded-full
+                    bg-gray-100
+                    text-sm
+                    text-gray-700
+                  ">
+
+                    {fornecedor.situacao}
+
+                  </span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* SCORE */}
+
+            <div className="flex flex-col items-center">
+
+              <div className="
+                w-40
+                h-40
+                rounded-full
+                border-[12px]
+                border-gray-100
+                flex
+                items-center
+                justify-center
+                relative
+              ">
+
+                <div
+                  className={`
+                    absolute
+                    inset-0
+                    rounded-full
+                    border-[12px]
+                    ${fornecedor.risco === "Baixo"
+                      ? "border-green-500"
+                      : fornecedor.risco === "Médio"
+                      ? "border-yellow-500"
+                      : "border-red-500"
+                    }
+                    border-r-transparent
+                    border-b-transparent
+                    rotate-45
+                  `}
+                />
+
+                <div className="text-center">
+
+                  <p className="text-5xl font-bold text-gray-900">
+                    {fornecedor.score}
+                  </p>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    SCORE
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
 
           </div>
 
-          <span className={`px-4 py-2 rounded-full ${riscoClass(fornecedor.risco)}`}>
-            Risco - {fornecedor.risco}
-          </span>
+          {/* BARRA */}
+
+          <div className="mt-8">
+
+            <div className="flex justify-between text-sm mb-2">
+
+              <span className="text-gray-500">
+                Nível de confiabilidade
+              </span>
+
+              <span className="font-semibold text-gray-800">
+                {fornecedor.score}/100
+              </span>
+
+            </div>
+
+            <div className="w-full h-4 rounded-full bg-gray-100 overflow-hidden">
+
+              <div
+                style={{
+                  width: `${fornecedor.score}%`
+                }}
+                className={`
+                  h-full
+                  ${riscoBarClass(fornecedor.risco)}
+                `}
+              />
+
+            </div>
+
+          </div>
 
         </div>
 
       </div>
+
+      {/* KPIS */}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
 
-          <p className="text-sm text-gray-500">
-            Score
-          </p>
+          <div className="flex items-center justify-between">
 
-          <h2 className="text-3xl font-bold text-gray-800 mt-2">
-            {fornecedor.score}
-          </h2>
+            <div>
 
-        </div>
+              <p className="text-sm text-gray-500">
+                Ocorrências
+              </p>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+              <h2 className="text-3xl font-bold text-gray-900 mt-2">
+                {ocorrencias.length}
+              </h2>
 
-          <p className="text-sm text-gray-500">
-            Situação
-          </p>
+            </div>
 
-          <h2 className="text-xl font-semibold text-gray-800 mt-2">
-            {fornecedor.situacao}
-          </h2>
+            <FileWarning className="w-8 h-8 text-gray-400" />
+
+          </div>
 
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
 
-          <p className="text-sm text-gray-500">
-            Cidade
-          </p>
+          <div className="flex items-center justify-between">
 
-          <h2 className="text-xl font-semibold text-gray-800 mt-2">
-            {fornecedor.cidade} - {fornecedor.uf}
-          </h2>
+            <div>
+
+              <p className="text-sm text-gray-500">
+                Análises IA
+              </p>
+
+              <h2 className="text-3xl font-bold text-gray-900 mt-2">
+                {analises.length}
+              </h2>
+
+            </div>
+
+            <Brain className="w-8 h-8 text-gray-400" />
+
+          </div>
 
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
 
-          <p className="text-sm text-gray-500">
-            Porte
-          </p>
+          <div className="flex items-center justify-between">
 
-          <h2 className="text-xl font-semibold text-gray-800 mt-2">
-            {fornecedor.porte}
-          </h2>
+            <div>
+
+              <p className="text-sm text-gray-500">
+                Cidade
+              </p>
+
+              <h2 className="text-xl font-bold text-gray-900 mt-2">
+                {fornecedor.cidade}
+              </h2>
+
+            </div>
+
+            <MapPin className="w-8 h-8 text-gray-400" />
+
+          </div>
+
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-sm text-gray-500">
+                Porte
+              </p>
+
+              <h2 className="text-xl font-bold text-gray-900 mt-2">
+                {fornecedor.porte}
+              </h2>
+
+            </div>
+
+            <ShieldAlert className="w-8 h-8 text-gray-400" />
+
+          </div>
 
         </div>
 
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
+      {/* TABS */}
 
-        <div className="p-6 border-b border-gray-200">
+      <div className="flex gap-3">
 
-          <h2 className="text-lg font-semibold text-gray-800">
-            Ocorrências
-          </h2>
+        <button
+          onClick={() => setAba("overview")}
+          className={`
+            px-5
+            py-3
+            rounded-2xl
+            text-sm
+            font-medium
+            transition
+            ${aba === "overview"
+              ? "bg-gray-900 text-white"
+              : "bg-white border border-gray-200 text-gray-700"
+            }
+          `}
+        >
+          Visão geral
+        </button>
+
+        <button
+          onClick={() => setAba("ocorrencias")}
+          className={`
+            px-5
+            py-3
+            rounded-2xl
+            text-sm
+            font-medium
+            transition
+            ${aba === "ocorrencias"
+              ? "bg-gray-900 text-white"
+              : "bg-white border border-gray-200 text-gray-700"
+            }
+          `}
+        >
+          Ocorrências
+        </button>
+
+        <button
+          onClick={() => setAba("ia")}
+          className={`
+            px-5
+            py-3
+            rounded-2xl
+            text-sm
+            font-medium
+            transition
+            ${aba === "ia"
+              ? "bg-gray-900 text-white"
+              : "bg-white border border-gray-200 text-gray-700"
+            }
+          `}
+        >
+          IA
+        </button>
+
+      </div>
+
+      {/* OVERVIEW */}
+
+      {aba === "overview" && (
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* GRAFICO */}
+
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div className="flex items-center gap-2 mb-6">
+
+              <TrendingDown className="w-5 h-5 text-gray-700" />
+
+              <h2 className="text-lg font-semibold text-gray-900">
+                Evolução do score
+              </h2>
+
+            </div>
+
+            <div className="h-80 min-w-0">
+
+              <ResponsiveContainer width="100%" height="100%">
+
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+
+                  <XAxis dataKey="nome" />
+
+                  <YAxis domain={[0, 100]} />
+
+                  <Tooltip />
+
+                  <Legend />
+
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    name="Score"
+                    stroke="#111827"
+                    strokeWidth={3}
+                  />
+                </LineChart>
+
+              </ResponsiveContainer>
+
+            </div>
+
+          </div>
+
+          {/* IA */}
+
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <div className="flex items-center justify-between mb-6">
+
+              <div className="flex items-center gap-2">
+
+                <Brain className="w-5 h-5 text-gray-700" />
+
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Última IA
+                </h2>
+
+              </div>
+
+              <button
+                onClick={gerarAnaliseIA}
+                disabled={loadingIA}
+                className="
+                  bg-gray-900
+                  hover:bg-gray-800
+                  text-white
+                  px-4
+                  py-2
+                  rounded-xl
+                  text-sm
+                "
+              >
+
+                {loadingIA
+                  ? "Gerando..."
+                  : "Gerar"}
+
+              </button>
+
+            </div>
+
+            <div className="
+              bg-gray-50
+              rounded-2xl
+              p-5
+              border
+              border-gray-200
+            ">
+
+              <p className="text-gray-700 leading-relaxed">
+
+                {analises[0]?.parecer ||
+                  "Nenhuma análise disponível."}
+
+              </p>
+
+            </div>
+
+          </div>
 
         </div>
 
-        <div className="p-6">
+      )}
 
-          <div className="space-y-4 mb-6">
+      {/* OCORRENCIAS */}
 
-            <input
-              type="text"
-              placeholder="Tipo da ocorrência"
-              value={tipoOcorrencia}
-              onChange={(e) => setTipoOcorrencia(e.target.value)}
-              className="
-                w-full
-                border
-                border-gray-300
-                rounded-xl
-                px-4
-                py-3
-                outline-none
-                focus:ring-2
-                focus:ring-gray-900
-              "
-            />
+      {aba === "ocorrencias" && (
 
-            <textarea
-              placeholder="Descrição"
-              value={descricaoOcorrencia}
-              onChange={(e) => setDescricaoOcorrencia(e.target.value)}
-              className="
-                w-full
-                border
-                border-gray-300
-                rounded-xl
-                px-4
-                py-3
-                outline-none
-                focus:ring-2
-                focus:ring-gray-900
-                min-h-30
-              "
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <input
-              type="number"
-              placeholder="Impacto (0 a 100)"
-              value={impactoOcorrencia}
-              min={0}
-              max={100}
-              onChange={(e) => {
-                const value = e.target.value;
+          {/* FORM */}
 
-                if (value === "") {
-                  setImpactoOcorrencia("");
-                  return;
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">
+              Nova ocorrência
+            </h2>
+
+            <div className="space-y-4">
+
+              <input
+                type="text"
+                placeholder="Tipo"
+                value={tipoOcorrencia}
+                onChange={(e) =>
+                  setTipoOcorrencia(e.target.value)
                 }
+                className="
+                  w-full
+                  border
+                  border-gray-200
+                  rounded-2xl
+                  px-4
+                  py-3
+                  outline-none
+                  focus:ring-2
+                  focus:ring-gray-900
+                "
+              />
 
-                const numeric = Number(value);
-
-                // bloqueia fora do range
-                if (numeric < 0) {
-                  setImpactoOcorrencia(0);
-                  return;
+              <textarea
+                placeholder="Descrição"
+                value={descricaoOcorrencia}
+                onChange={(e) =>
+                  setDescricaoOcorrencia(e.target.value)
                 }
+                className="
+                  w-full
+                  border
+                  border-gray-200
+                  rounded-2xl
+                  px-4
+                  py-3
+                  outline-none
+                  focus:ring-2
+                  focus:ring-gray-900
+                  min-h-32
+                "
+              />
 
-                if (numeric > 100) {
-                  setImpactoOcorrencia(100);
-                  return;
+              <input
+                type="number"
+                placeholder="Impacto"
+                value={impactoOcorrencia}
+                onChange={(e) =>
+                  setImpactoOcorrencia(e.target.value)
                 }
+                className="
+                  w-full
+                  border
+                  border-gray-200
+                  rounded-2xl
+                  px-4
+                  py-3
+                  outline-none
+                  focus:ring-2
+                  focus:ring-gray-900
+                "
+              />
 
-                setImpactoOcorrencia(numeric);
-              }}
-              className="
-                w-full
-                border
-                border-gray-300
-                rounded-xl
-                px-4
-                py-3
-                outline-none
-                focus:ring-2
-                focus:ring-gray-900
-              "
-            />
+              <button
+                onClick={adicionarOcorrencia}
+                className="
+                  w-full
+                  bg-gray-900
+                  hover:bg-gray-800
+                  text-white
+                  py-3
+                  rounded-2xl
+                  font-medium
+                "
+              >
+                Registrar ocorrência
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* TIMELINE */}
+
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+            <h2 className="text-lg font-semibold text-gray-900 mb-8">
+              Timeline de ocorrências
+            </h2>
+
+            <div className="space-y-8">
+
+              {ocorrencias.map((ocorrencia) => (
+
+                <div
+                  key={ocorrencia.id}
+                  className="flex gap-5"
+                >
+
+                  <div className="flex flex-col items-center">
+
+                    <div className="
+                      w-12
+                      h-12
+                      rounded-full
+                      bg-red-100
+                      flex
+                      items-center
+                      justify-center
+                    ">
+
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+
+                    </div>
+
+                    <div className="w-px flex-1 bg-gray-200 mt-2"></div>
+
+                  </div>
+
+                  <div className="
+                    flex-1
+                    pb-8
+                  ">
+
+                    <div className="
+                      bg-gray-50
+                      border
+                      border-gray-200
+                      rounded-2xl
+                      p-5
+                    ">
+
+                      <div className="
+                        flex
+                        items-start
+                        justify-between
+                      ">
+
+                        <div>
+
+                          <h3 className="font-semibold text-gray-900">
+                            {ocorrencia.tipo}
+                          </h3>
+
+                          <p className="text-gray-600 text-sm mt-2 leading-relaxed">
+                            {ocorrencia.descricao}
+                          </p>
+
+                        </div>
+
+                        <span className="
+                          bg-red-100
+                          text-red-700
+                          px-3
+                          py-1
+                          rounded-full
+                          text-sm
+                          font-semibold
+                        ">
+
+                          -{ocorrencia.impacto}
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* IA */}
+
+      {aba === "ia" && (
+
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+
+          <div className="flex items-center justify-between mb-6">
+
+            <h2 className="text-xl font-semibold text-gray-900">
+              Histórico de análises IA
+            </h2>
 
             <button
-              onClick={adicionarOcorrencia}
+              onClick={gerarAnaliseIA}
               className="
                 bg-gray-900
                 hover:bg-gray-800
                 text-white
                 px-5
                 py-3
-                rounded-xl
-                transition
+                rounded-2xl
               "
             >
-              Adicionar ocorrência
+              Gerar nova análise
             </button>
 
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
 
-            {ocorrencias.map((ocorrencia) => (
+            {analises.map((analise) => (
+
               <div
-                key={ocorrencia.id}
-                onClick={() => setOcorrenciaSelecionada(ocorrencia)}
+                key={analise.id}
                 className="
+                  bg-gray-50
                   border
                   border-gray-200
-                  rounded-xl
-                  p-4
-                  bg-gray-50
-                  cursor-pointer
-                  hover:bg-gray-100
-                  transition
-                  flex
-                  items-center
-                  justify-between
+                  rounded-2xl
+                  p-5
                 "
               >
 
-                {/* esquerda */}
-                <p className="text-gray-800 font-medium">
-                  {ocorrencia.tipo}
+                <p className="text-gray-700 leading-relaxed">
+                  {analise.parecer}
                 </p>
 
-                {/* direita (impacto) */}
-                <span className="text-sm font-semibold text-gray-700">
-                  {ocorrencia.impacto}
-                </span>
-
               </div>
+
             ))}
 
           </div>
 
         </div>
 
-      </div>
+      )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
-
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-
-          <h2 className="text-lg font-semibold text-gray-800">
-            Análises IA
-          </h2>
-
-          <button
-            onClick={gerarAnaliseIA}
-            disabled={loadingIA}
-            className="
-              bg-gray-900
-              hover:bg-gray-800
-              text-white
-              px-4
-              py-2
-              rounded-xl
-              text-sm
-              font-medium
-              transition
-              disabled:opacity-50
-              disabled:cursor-not-allowed
-            "
-          >
-
-            {loadingIA
-              ? "Gerando análise..."
-              : "Gerar análise IA"
-            }
-
-          </button>
-
-        </div>
-
-        <div className="p-6 space-y-4">
-
-          {analises.map((analise) => (
-
-            <div
-              key={analise.id}
-              className="bg-gray-50 rounded-xl p-4 border border-gray-200"
-            >
-
-              <p className="text-gray-700 leading-relaxed">
-                {analise.parecer}
-              </p>
-
-            </div>
-
-          ))}
-
-        </div>
-
-      </div>
+      {/* LOADING */}
 
       {globalLoading && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-          <div className="bg-white rounded-2xl p-6 shadow-xl flex items-center gap-3">
+        <div className="
+          fixed
+          inset-0
+          bg-black/40
+          backdrop-blur-sm
+          flex
+          items-center
+          justify-center
+          z-50
+        ">
 
-            <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+          <div className="
+            bg-white
+            rounded-3xl
+            p-8
+            shadow-xl
+            flex
+            items-center
+            gap-4
+          ">
 
-            <span className="text-gray-700 font-medium">
-              Processando IA...
+            <div className="
+              w-6
+              h-6
+              border-2
+              border-gray-900
+              border-t-transparent
+              rounded-full
+              animate-spin
+            "></div>
+
+            <span className="font-medium text-gray-700">
+              Processando...
             </span>
 
           </div>
 
         </div>
-      )}
 
-      {ocorrenciaSelecionada && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
-
-            {/* HEADER */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Detalhes da Ocorrência
-                </h2>
-
-                <p className="text-sm text-gray-500">
-                  Registro de impacto no fornecedor
-                </p>
-              </div>
-
-              <button
-                onClick={() => setOcorrenciaSelecionada(null)}
-                className="text-gray-400 hover:text-gray-700 text-xl"
-              >
-                ✕
-              </button>
-
-            </div>
-
-            {/* BODY */}
-            <div className="p-6 space-y-5">
-
-              {/* Tipo */}
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
-                  Tipo
-                </p>
-                <p className="text-base text-gray-800 font-semibold">
-                  {ocorrenciaSelecionada.tipo}
-                </p>
-              </div>
-
-              {/* Descrição */}
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
-                  Descrição
-                </p>
-                <p className="text-sm text-gray-800 leading-relaxed font-semibold">
-                  {ocorrenciaSelecionada.descricao || "Sem descrição informada"}
-                </p>
-              </div>
-
-              {/* Impacto */}
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
-                  Impacto no Score
-                </p>
-
-                <p className="text-2xl text-gray-800 font-semibold">
-                  {ocorrenciaSelecionada.impacto}
-                </p>
-              </div>
-
-            </div>
-
-            {/* FOOTER */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
-
-              <button
-                onClick={() => setOcorrenciaSelecionada(null)}
-                className="
-                  px-4 py-2
-                  rounded-xl
-                  bg-gray-900
-                  text-white
-                  hover:bg-gray-800
-                  transition
-                "
-              >
-                Fechar
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
       )}
 
     </div>

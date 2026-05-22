@@ -27,3 +27,5 @@ class Fornecedor(Base):
 
     score = Column(Float, default=0)
     risco = Column(String, default="Em análise")
+
+    score_base = Column(Float)
