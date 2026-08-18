@@ -4,6 +4,8 @@ import Fornecedores from "./pages/Fornecedores";
 import FornecedorDetalhe from "./pages/FornecedorDetalhe";
 import NovoFornecedor from "./pages/NovoFornecedor";
 import Dashboard from "./pages/Dashboard";
+import Homologacoes from "./pages/Homologacoes";
+import HomologacaoDetalhe from "./pages/HomologacaoDetalhe";
 
 import {
   ShieldCheck,
@@ -96,6 +98,17 @@ function Header() {
           </Link>
 
           <Link
+            to="/homologacoes"
+            className={navClass("/homologacoes")}
+          >
+
+            <LayoutDashboard size={18} />
+
+            Homologações
+
+          </Link>
+
+          <Link
             to="/fornecedores"
             className={navClass("/fornecedores")}
           >
@@ -170,6 +183,16 @@ function App() {
           <Route
             path="/novo-fornecedor"
             element={<NovoFornecedor />}
+          />
+
+          <Route
+            path="/homologacoes"
+            element={<Homologacoes />}
+          />
+
+          <Route
+            path="/homologacao/:id"
+            element={<HomologacaoDetalhe />}
           />
 
         </Routes>
