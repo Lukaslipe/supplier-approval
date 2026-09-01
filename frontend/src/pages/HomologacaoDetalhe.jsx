@@ -292,17 +292,29 @@ function HomologacaoDetalhe() {
                                     </h3>
 
                                     <span className={`
-                    px-2
-                    py-1
-                    rounded-full
-                    border
-                    text-xs
-                    font-semibold
-                    ${statusClass(aprovacao.status)}
-                  `}>
+                                        px-2
+                                        py-1
+                                        rounded-full
+                                        border
+                                        text-xs
+                                        font-semibold
+                                        ${statusClass(aprovacao.status)}
+                                    `}>
                                         {aprovacao.status}
+
+                                        
                                     </span>
 
+                                </div>
+
+                                <div>
+                                    
+                                    {aprovacao.status === "Reprovado" && (
+                                        <div className="mb-4 text-xs text-gray-600 bg-red-50 p-3 rounded-xl border border-red-100">
+                                            <span className="font-semibold block text-red-700">Observação:</span>
+                                            <p className="mt-0.5">{aprovacao.observacao}</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex gap-2">
