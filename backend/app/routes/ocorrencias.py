@@ -40,10 +40,10 @@ def criar_ocorrencia(ocorrencia: OcorrenciaCreate):
                 detail="Fornecedor não encontrado"
             )
 
-        if ocorrencia.impacto < 0 or ocorrencia.impacto > 100:
+        if ocorrencia.impacto < -100 or ocorrencia.impacto > 100:
             raise HTTPException(
                 status_code=400,
-                detail="Impacto deve estar entre 0 e 100"
+                detail="Impacto deve estar entre -100 e 100"
             )
 
         score_antes = fornecedor.score
@@ -52,6 +52,8 @@ def criar_ocorrencia(ocorrencia: OcorrenciaCreate):
 
         if novo_score < 0:
             novo_score = 0
+        elif novo_score > 100:
+            novo_score = 100
 
         nova_ocorrencia = Ocorrencia(
             fornecedor_id=ocorrencia.fornecedor_id,

@@ -9,6 +9,7 @@ import {
   MapPin,
   ShieldAlert,
   TrendingDown,
+  CheckCircle,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,7 @@ function FornecedorDetalhe() {
   const [tipoOcorrencia, setTipoOcorrencia] = useState("");
   const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
   const [impactoOcorrencia, setImpactoOcorrencia] = useState("");
+  const [tipoImpacto, setTipoImpacto] = useState("negativa");
 
   const [aprovacoes, setAprovacoes] = useState({
     rh: "Pendente",
@@ -222,30 +224,25 @@ function FornecedorDetalhe() {
   }
 
   async function adicionarOcorrencia() {
-
-    if (!tipoOcorrencia) {
-      return;
-    }
+    if (!tipoOcorrencia) return;
 
     try {
-
       setGlobalLoading(true);
 
+      const valor = Number(impactoOcorrencia || 0);
+      const impactoFinal = tipoImpacto === "negativa" ? Math.abs(valor) : -Math.abs(valor);
+
       await api.post("/ocorrencias", {
-
         fornecedor_id: fornecedor.id,
-
         tipo: tipoOcorrencia,
-
         descricao: descricaoOcorrencia,
-
-        impacto: Number(impactoOcorrencia || 0)
-
+        impacto: impactoFinal
       });
 
       setTipoOcorrencia("");
       setDescricaoOcorrencia("");
       setImpactoOcorrencia("");
+      setTipoImpacto("negativa");
 
       await carregarFornecedor();
       await carregarOcorrencias();
@@ -253,15 +250,10 @@ function FornecedorDetalhe() {
       await carregarHistoricoScore();
 
     } catch (error) {
-
       console.error(error);
-
     } finally {
-
       setGlobalLoading(false);
-
     }
-
   }
 
   useEffect(() => {
@@ -782,6 +774,31 @@ function FornecedorDetalhe() {
                 "
               />
 
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTipoImpacto("negativa")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                    tipoImpacto === "negativa"
+                      ? "bg-red-50 border-red-200 text-red-700"
+                      : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Penalidade (-)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoImpacto("positiva")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                    tipoImpacto === "positiva"
+                      ? "bg-green-50 border-green-200 text-green-700"
+                      : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  Bônus (+)
+                </button>
+              </div>
+
               <input
                 type="number"
                 placeholder="Impacto"
@@ -831,87 +848,38 @@ function FornecedorDetalhe() {
 
             <div className="space-y-8">
 
-              {ocorrencias.map((ocorrencia) => (
+              {ocorrencias.map((ocorrencia) => {
+                // Lembre-se: no banco, < 0 significa que somou pontos
+                const isBonus = ocorrencia.impacto < 0; 
+                const valorDisplay = isBonus ? `+${Math.abs(ocorrencia.impacto)}` : `-${ocorrencia.impacto}`;
 
-                <div
-                  key={ocorrencia.id}
-                  className="flex gap-5"
-                >
-
-                  <div className="flex flex-col items-center">
-
-                    <div className="
-                      w-12
-                      h-12
-                      rounded-full
-                      bg-red-100
-                      flex
-                      items-center
-                      justify-center
-                    ">
-
-                      <AlertTriangle className="w-5 h-5 text-red-600" />
-
-                    </div>
-
-                    <div className="w-px flex-1 bg-gray-200 mt-2"></div>
-
-                  </div>
-
-                  <div className="
-                    flex-1
-                    pb-8
-                  ">
-
-                    <div className="
-                      bg-gray-50
-                      border
-                      border-gray-200
-                      rounded-2xl
-                      p-5
-                    ">
-
-                      <div className="
-                        flex
-                        items-start
-                        justify-between
-                      ">
-
-                        <div>
-
-                          <h3 className="font-semibold text-gray-900">
-                            {ocorrencia.tipo}
-                          </h3>
-
-                          <p className="text-gray-600 text-sm mt-2 leading-relaxed">
-                            {ocorrencia.descricao}
-                          </p>
-
-                        </div>
-
-                        <span className="
-                          bg-red-100
-                          text-red-700
-                          px-3
-                          py-1
-                          rounded-full
-                          text-sm
-                          font-semibold
-                        ">
-
-                          -{ocorrencia.impacto}
-
-                        </span>
-
+                return (
+                  <div key={ocorrencia.id} className="flex gap-5">
+                    <div className="flex flex-col items-center">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isBonus ? 'bg-green-100' : 'bg-red-100'}`}>
+                        {isBonus ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" /> // Não esqueça de importar o CheckCircle do lucide-react
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 text-red-600" />
+                        )}
                       </div>
-
+                      <div className="w-px flex-1 bg-gray-200 mt-2"></div>
                     </div>
 
+                    <div className="flex-1 pb-8">
+                      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{ocorrencia.tipo}</h3>
+                          <p className="text-gray-600 text-sm mt-2 leading-relaxed">{ocorrencia.descricao}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${isBonus ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {valorDisplay}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-
-                </div>
-
-              ))}
+                );
+              })}
 
             </div>
 
