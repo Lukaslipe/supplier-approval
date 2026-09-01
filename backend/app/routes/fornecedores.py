@@ -16,6 +16,8 @@ from app.services.score_service import (
 )
 
 from app.schemas.fornecedor_schema import FornecedorSchema
+from app.models.analise_ia import AnaliseIA
+from app.services.ai_service import gerar_parecer
 
 router = APIRouter()
 
@@ -138,6 +140,42 @@ def cadastrar_fornecedor(payload: dict):
         db.commit()
 
         db.refresh(novo_fornecedor)
+        
+        if novo_fornecedor.risco == "Baixo":
+            prompt = f"""
+            Você é um sistema de análise de risco corporativo.
+            
+            REGRAS OBRIGATÓRIAS:
+            - Não use markdown
+            - Não use negrito, tópicos ou títulos
+            - Máximo 3 linhas
+            - Linguagem corporativa e direta
+            
+            Formato da resposta:
+            Parecer: <texto>
+            
+            Contexto:
+            O fornecedor {novo_fornecedor.razao_social} (CNPJ: {novo_fornecedor.cnpj}) obteve Score de {novo_fornecedor.score}.
+            Seu risco foi classificado como BAIXO.
+            
+            Tarefa:
+            Escreva um breve parecer justificando que, devido ao baixo risco e bom score, o fornecedor atende às políticas de compliance e foi aprovado automaticamente.
+            """
+            
+            try:
+                # Chama a IA
+                texto_parecer = gerar_parecer(prompt)
+                
+                if texto_parecer:
+                    nova_analise = AnaliseIA(
+                        fornecedor_id=novo_fornecedor.id,
+                        parecer=texto_parecer
+                    )
+                    db.add(nova_analise)
+                    db.commit()
+            except Exception as e:
+                # Apenas loga o erro no console, não impede o retorno 201 do cadastro
+                print(f"Erro ao gerar parecer automático via IA: {e}")
 
         return {
             "message": "Fornecedor cadastrado com sucesso",
