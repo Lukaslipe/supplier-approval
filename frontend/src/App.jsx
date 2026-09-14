@@ -6,17 +6,25 @@ import NovoFornecedor from "./pages/NovoFornecedor";
 import Dashboard from "./pages/Dashboard";
 import Homologacoes from "./pages/Homologacoes";
 import HomologacaoDetalhe from "./pages/HomologacaoDetalhe";
+import Login from "./pages/Login";
+import Admin from "./pages/Admin";
+
+import ProtectedRoute from "./components/ProtectedRoute";
+import { useAuth, ROLE_LABEL } from "./context/AuthContext";
 
 import {
   ShieldCheck,
   LayoutDashboard,
   Building2,
-  Plus
+  Plus,
+  Users,
+  LogOut
 } from "lucide-react";
 
 function Header() {
 
   const location = useLocation();
+  const { usuario, isAdmin, logout } = useAuth();
 
   function navClass(path) {
 
@@ -119,6 +127,16 @@ function Header() {
 
           </Link>
 
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={navClass("/admin")}
+            >
+              <Users size={18} />
+              Admin
+            </Link>
+          )}
+
           <Link
             to="/novo-fornecedor"
             className="
@@ -143,6 +161,39 @@ function Header() {
 
           </Link>
 
+          {/* USUÁRIO LOGADO */}
+          <div className="flex items-center gap-3 pl-3 ml-1 border-l border-gray-200">
+
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-semibold text-gray-800 leading-tight">
+                {usuario?.nome}
+              </p>
+              <p className="text-xs text-gray-500">
+                {ROLE_LABEL[usuario?.role] || usuario?.role}
+              </p>
+            </div>
+
+            <button
+              onClick={logout}
+              title="Sair"
+              className="
+                flex
+                items-center
+                justify-center
+                w-10
+                h-10
+                rounded-xl
+                text-gray-500
+                hover:bg-gray-100
+                hover:text-gray-900
+                transition
+              "
+            >
+              <LogOut size={18} />
+            </button>
+
+          </div>
+
         </nav>
 
       </div>
@@ -153,53 +204,91 @@ function Header() {
 
 }
 
+function LayoutPrivado({ children }) {
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Header />
+      <main className="max-w-7xl mx-auto p-6">
+        {children}
+      </main>
+    </div>
+  );
+}
+
 function App() {
 
   return (
 
-    <div className="min-h-screen bg-gray-100">
+    <Routes>
 
-      <Header />
+      {/* PÚBLICA */}
+      <Route path="/login" element={<Login />} />
 
-      <main className="max-w-7xl mx-auto p-6">
+      {/* PRIVADAS */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><Dashboard /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-        <Routes>
+      <Route
+        path="/fornecedores"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><Fornecedores /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/"
-            element={<Dashboard />}
-          />
+      <Route
+        path="/fornecedor/:id"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><FornecedorDetalhe /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/fornecedores"
-            element={<Fornecedores />}
-          />
+      <Route
+        path="/novo-fornecedor"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><NovoFornecedor /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/fornecedor/:id"
-            element={<FornecedorDetalhe />}
-          />
+      <Route
+        path="/homologacoes"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><Homologacoes /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/novo-fornecedor"
-            element={<NovoFornecedor />}
-          />
+      <Route
+        path="/homologacao/:id"
+        element={
+          <ProtectedRoute>
+            <LayoutPrivado><HomologacaoDetalhe /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/homologacoes"
-            element={<Homologacoes />}
-          />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute somenteAdmin>
+            <LayoutPrivado><Admin /></LayoutPrivado>
+          </ProtectedRoute>
+        }
+      />
 
-          <Route
-            path="/homologacao/:id"
-            element={<HomologacaoDetalhe />}
-          />
-
-        </Routes>
-
-      </main>
-
-    </div>
+    </Routes>
 
   );
 

@@ -1,7 +1,9 @@
 import re
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.auth.deps import get_usuario_atual
+from app.models.usuario import ROLE_PARA_SETOR, Usuario
 from app.models.ocorrencia import Ocorrencia
 from app.services.receita_ws import consultar_cnpj
 from app.services.homologacao_service import criar_homologacao
@@ -331,6 +333,7 @@ def buscar_homologacao(fornecedor_id: int):
                     "setor": aprovacao.setor,
                     "status": aprovacao.status,
                     "observacao": aprovacao.observacao,
+                    "aprovado_por": aprovacao.aprovado_por,
                     "atualizado_em": aprovacao.atualizado_em
                 }
                 for aprovacao in aprovacoes
@@ -343,7 +346,8 @@ def buscar_homologacao(fornecedor_id: int):
 @router.post("/fornecedores/{fornecedor_id}/aprovacao")
 def atualizar_aprovacao(
     fornecedor_id: int,
-    payload: dict
+    payload: dict,
+    usuario: Usuario = Depends(get_usuario_atual)
 ):
 
     db = SessionLocal()
@@ -359,6 +363,15 @@ def atualizar_aprovacao(
                 status_code=400,
                 detail="Setor inválido"
             )
+
+        # Permissão: admin aprova qualquer setor; demais só o próprio setor
+        if usuario.role != "admin":
+            setor_do_usuario = ROLE_PARA_SETOR.get(usuario.role)
+            if setor_do_usuario != setor:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Você só pode aprovar o setor {setor_do_usuario or '(nenhum)'}"
+                )
 
         if status_aprovacao not in ["Aprovado", "Reprovado"]:
             raise HTTPException(
@@ -386,6 +399,7 @@ def atualizar_aprovacao(
 
         aprovacao.status = status_aprovacao
         aprovacao.observacao = observacao
+        aprovacao.aprovado_por = usuario.nome
 
         homologacao = db.query(HomologacaoFornecedor).filter(
             HomologacaoFornecedor.fornecedor_id == fornecedor_id

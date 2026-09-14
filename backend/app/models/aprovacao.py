@@ -34,6 +34,12 @@ class AprovacaoFornecedor(Base):
         nullable=True
     )
 
+    # Nome do usuário que aprovou/reprovou (auditoria simples)
+    aprovado_por: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True
+    )
+
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow
