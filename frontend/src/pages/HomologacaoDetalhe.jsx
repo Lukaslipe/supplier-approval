@@ -11,11 +11,14 @@ import {
 } from "lucide-react";
 
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function HomologacaoDetalhe() {
 
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const { podeAprovarSetor } = useAuth();
 
     const [homologacao, setHomologacao] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -278,7 +281,11 @@ function HomologacaoDetalhe() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                        {setores.map((aprovacao) => (
+                        {setores.map((aprovacao) => {
+
+                            const podeAgir = podeAprovarSetor(aprovacao.setor);
+
+                            return (
 
                             <div
                                 key={aprovacao.setor}
@@ -308,7 +315,19 @@ function HomologacaoDetalhe() {
                                 </div>
 
                                 <div>
-                                    
+
+                                    {/* Quem decidiu */}
+                                    {aprovacao.aprovado_por &&
+                                        (aprovacao.status === "Aprovado" ||
+                                         aprovacao.status === "Reprovado") && (
+                                        <p className="mb-3 text-xs text-gray-500">
+                                            {aprovacao.status} por{" "}
+                                            <span className="font-semibold text-gray-700">
+                                                {aprovacao.aprovado_por}
+                                            </span>
+                                        </p>
+                                    )}
+
                                     {aprovacao.status === "Reprovado" && (
                                         <div className="mb-4 text-xs text-gray-600 bg-red-50 p-3 rounded-xl border border-red-100">
                                             <span className="font-semibold block text-red-700">Observação:</span>
@@ -317,52 +336,59 @@ function HomologacaoDetalhe() {
                                     )}
                                 </div>
 
-                                <div className="flex gap-2">
+                                {podeAgir ? (
+                                    <div className="flex gap-2">
 
-                                    <button
-                                        disabled={processando}
-                                        onClick={() =>
-                                            atualizarAprovacao(
-                                                aprovacao.setor,
-                                                "Aprovado"
-                                            )
-                                        }
-                                        className="
-                                            flex-1
-                                            bg-green-500
-                                            hover:bg-green-600
-                                            disabled:opacity-50
-                                            text-white
-                                            py-2
-                                            rounded-xl
-                                            text-sm
-                                        "
-                                    >
-                                        Aprovar
-                                    </button>
+                                        <button
+                                            disabled={processando}
+                                            onClick={() =>
+                                                atualizarAprovacao(
+                                                    aprovacao.setor,
+                                                    "Aprovado"
+                                                )
+                                            }
+                                            className="
+                                                flex-1
+                                                bg-green-500
+                                                hover:bg-green-600
+                                                disabled:opacity-50
+                                                text-white
+                                                py-2
+                                                rounded-xl
+                                                text-sm
+                                            "
+                                        >
+                                            Aprovar
+                                        </button>
 
-                                    <button
-                                        disabled={processando}
-                                        onClick={() => abrirModalReprovacao(aprovacao.setor)}
-                                        className="
-                                            flex-1
-                                            bg-red-500
-                                            hover:bg-red-600
-                                            disabled:opacity-50
-                                            text-white
-                                            py-2
-                                            rounded-xl
-                                            text-sm
-                                        "
-                                    >
-                                        Reprovar
-                                    </button>
+                                        <button
+                                            disabled={processando}
+                                            onClick={() => abrirModalReprovacao(aprovacao.setor)}
+                                            className="
+                                                flex-1
+                                                bg-red-500
+                                                hover:bg-red-600
+                                                disabled:opacity-50
+                                                text-white
+                                                py-2
+                                                rounded-xl
+                                                text-sm
+                                            "
+                                        >
+                                            Reprovar
+                                        </button>
 
-                                </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 italic">
+                                        Somente o setor {aprovacao.setor} pode decidir aqui.
+                                    </p>
+                                )}
 
                             </div>
 
-                        ))}
+                            );
+                        })}
 
                     </div>
 

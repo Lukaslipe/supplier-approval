@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
@@ -25,6 +25,51 @@ import {
 
 import api from "../services/api";
 
+// =========================================================
+// MATRIZES DE RISCO / MÉRITO
+// Cada célula = probabilidade/recorrência (linha) x severidade/relevância (coluna).
+// "pontos" = quantos pontos de score a ocorrência move (sempre valor absoluto).
+// O sinal é aplicado no envio conforme o tipo (penalidade/bônus).
+// =========================================================
+
+const NIVEIS_PROBABILIDADE = ["Raro", "Improvável", "Possível", "Provável", "Quase certo"];
+const NIVEIS_SEVERIDADE = ["Insignificante", "Baixa", "Moderada", "Alta", "Crítica"];
+
+const NIVEIS_RECORRENCIA = ["Pontual", "Ocasional", "Recorrente", "Frequente", "Contínua"];
+const NIVEIS_RELEVANCIA = ["Discreta", "Baixa", "Moderada", "Alta", "Excepcional"];
+
+// Rótulo + estilo por faixa de pontuação (1 a 5 = índice do produto probabilidade x severidade)
+function faixaRiscoNegativa(prob, sev) {
+  // produto de 1..25 -> peso e cor
+  const produto = (prob + 1) * (sev + 1);
+
+  if (produto <= 4) {
+    return { nome: "Baixo", pontos: 5, cell: "bg-green-100 text-green-800", selected: "ring-2 ring-green-600" };
+  }
+  if (produto <= 9) {
+    return { nome: "Moderado", pontos: 10, cell: "bg-yellow-100 text-yellow-800", selected: "ring-2 ring-yellow-600" };
+  }
+  if (produto <= 14) {
+    return { nome: "Alto", pontos: 20, cell: "bg-orange-100 text-orange-800", selected: "ring-2 ring-orange-600" };
+  }
+  return { nome: "Extremo", pontos: 35, cell: "bg-red-100 text-red-800", selected: "ring-2 ring-red-600" };
+}
+
+function faixaMeritoPositiva(rec, rel) {
+  const produto = (rec + 1) * (rel + 1);
+
+  if (produto <= 4) {
+    return { nome: "Discreto", pontos: 5, cell: "bg-emerald-50 text-emerald-800", selected: "ring-2 ring-emerald-500" };
+  }
+  if (produto <= 9) {
+    return { nome: "Bom", pontos: 10, cell: "bg-emerald-100 text-emerald-800", selected: "ring-2 ring-emerald-600" };
+  }
+  if (produto <= 14) {
+    return { nome: "Ótimo", pontos: 20, cell: "bg-teal-100 text-teal-800", selected: "ring-2 ring-teal-600" };
+  }
+  return { nome: "Excepcional", pontos: 35, cell: "bg-teal-200 text-teal-900", selected: "ring-2 ring-teal-700" };
+}
+
 function FornecedorDetalhe() {
 
   const { id } = useParams();
@@ -39,8 +84,9 @@ function FornecedorDetalhe() {
 
   const [tipoOcorrencia, setTipoOcorrencia] = useState("");
   const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
-  const [impactoOcorrencia, setImpactoOcorrencia] = useState("");
   const [tipoImpacto, setTipoImpacto] = useState("negativa");
+  // célula selecionada da matriz: { linha, coluna } ou null
+  const [celulaMatriz, setCelulaMatriz] = useState(null);
 
   const [aprovacoes, setAprovacoes] = useState({
     rh: "Pendente",
@@ -224,13 +270,20 @@ function FornecedorDetalhe() {
   }
 
   async function adicionarOcorrencia() {
-    if (!tipoOcorrencia) return;
+    if (!tipoOcorrencia || !celulaMatriz) return;
 
     try {
       setGlobalLoading(true);
 
-      const valor = Number(impactoOcorrencia || 0);
-      const impactoFinal = tipoImpacto === "negativa" ? Math.abs(valor) : -Math.abs(valor);
+      // Pontos vêm da faixa da célula selecionada na matriz
+      const faixa =
+        tipoImpacto === "negativa"
+          ? faixaRiscoNegativa(celulaMatriz.linha, celulaMatriz.coluna)
+          : faixaMeritoPositiva(celulaMatriz.linha, celulaMatriz.coluna);
+
+      // Convenção do backend: penalidade grava +abs (abaixa o score), bônus grava -abs (sobe o score)
+      const impactoFinal =
+        tipoImpacto === "negativa" ? Math.abs(faixa.pontos) : -Math.abs(faixa.pontos);
 
       await api.post("/ocorrencias", {
         fornecedor_id: fornecedor.id,
@@ -241,8 +294,8 @@ function FornecedorDetalhe() {
 
       setTipoOcorrencia("");
       setDescricaoOcorrencia("");
-      setImpactoOcorrencia("");
       setTipoImpacto("negativa");
+      setCelulaMatriz(null);
 
       await carregarFornecedor();
       await carregarOcorrencias();
@@ -777,7 +830,10 @@ function FornecedorDetalhe() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setTipoImpacto("negativa")}
+                  onClick={() => {
+                    setTipoImpacto("negativa");
+                    setCelulaMatriz(null);
+                  }}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                     tipoImpacto === "negativa"
                       ? "bg-red-50 border-red-200 text-red-700"
@@ -788,7 +844,10 @@ function FornecedorDetalhe() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTipoImpacto("positiva")}
+                  onClick={() => {
+                    setTipoImpacto("positiva");
+                    setCelulaMatriz(null);
+                  }}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                     tipoImpacto === "positiva"
                       ? "bg-green-50 border-green-200 text-green-700"
@@ -799,32 +858,21 @@ function FornecedorDetalhe() {
                 </button>
               </div>
 
-              <input
-                type="number"
-                placeholder="Impacto"
-                value={impactoOcorrencia}
-                onChange={(e) =>
-                  setImpactoOcorrencia(e.target.value)
-                }
-                className="
-                  w-full
-                  border
-                  border-gray-200
-                  rounded-2xl
-                  px-4
-                  py-3
-                  outline-none
-                  focus:ring-2
-                  focus:ring-gray-900
-                "
+              <MatrizImpacto
+                tipoImpacto={tipoImpacto}
+                celula={celulaMatriz}
+                onSelecionar={setCelulaMatriz}
               />
 
               <button
                 onClick={adicionarOcorrencia}
+                disabled={!tipoOcorrencia || !celulaMatriz}
                 className="
                   w-full
                   bg-gray-900
                   hover:bg-gray-800
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
                   text-white
                   py-3
                   rounded-2xl
@@ -992,6 +1040,125 @@ function FornecedorDetalhe() {
         </div>
 
       )}
+
+    </div>
+  );
+}
+
+// =========================================================
+// COMPONENTE: MATRIZ DE IMPACTO (RISCO / MÉRITO)
+// Linhas = probabilidade (negativa) / recorrência (positiva)
+// Colunas = severidade (negativa) / relevância (positiva)
+// Clicar numa célula define a intensidade da ocorrência.
+// =========================================================
+
+function MatrizImpacto({ tipoImpacto, celula, onSelecionar }) {
+
+  const negativa = tipoImpacto === "negativa";
+
+  const linhas = negativa ? NIVEIS_PROBABILIDADE : NIVEIS_RECORRENCIA;
+  const colunas = negativa ? NIVEIS_SEVERIDADE : NIVEIS_RELEVANCIA;
+
+  const rotuloLinha = negativa ? "Probabilidade" : "Recorrência";
+  const rotuloColuna = negativa ? "Severidade" : "Relevância";
+
+  const faixaDa = negativa ? faixaRiscoNegativa : faixaMeritoPositiva;
+
+  const faixaSelecionada =
+    celula ? faixaDa(celula.linha, celula.coluna) : null;
+
+  return (
+    <div className="space-y-3">
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">
+          {negativa ? "Matriz de risco" : "Matriz de mérito"}
+        </span>
+        {faixaSelecionada && (
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold ${faixaSelecionada.cell}`}
+          >
+            {faixaSelecionada.nome} · {negativa ? "-" : "+"}
+            {faixaSelecionada.pontos} pts
+          </span>
+        )}
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="inline-flex flex-col gap-1">
+
+          {/* CABEÇALHO DE COLUNAS */}
+          <div className="flex gap-1">
+            {/* espaço da coluna de rótulos das linhas */}
+            <div className="w-20 shrink-0" />
+            {colunas.map((col) => (
+              <div
+                key={col}
+                title={col}
+                className="w-11 shrink-0 text-center text-[10px] leading-tight font-medium text-gray-500 truncate"
+              >
+                {col}
+              </div>
+            ))}
+          </div>
+
+          {/* LINHAS (de baixo para cima: maior probabilidade/recorrência no topo) */}
+          {linhas
+            .map((linhaLabel, idx) => ({ linhaLabel, idx }))
+            .reverse()
+            .map(({ linhaLabel, idx }) => (
+              <div key={linhaLabel} className="flex gap-1 items-center">
+                <div
+                  title={linhaLabel}
+                  className="w-20 shrink-0 pr-2 text-[10px] font-medium text-gray-500 text-right truncate"
+                >
+                  {linhaLabel}
+                </div>
+
+                {colunas.map((_, colIdx) => {
+                  const faixa = faixaDa(idx, colIdx);
+
+                  const selecionada =
+                    celula &&
+                    celula.linha === idx &&
+                    celula.coluna === colIdx;
+
+                  return (
+                    <button
+                      key={colIdx}
+                      type="button"
+                      title={`${faixa.nome} · ${negativa ? "-" : "+"}${faixa.pontos} pts`}
+                      onClick={() =>
+                        onSelecionar({ linha: idx, coluna: colIdx })
+                      }
+                      className={`
+                        w-11
+                        h-11
+                        shrink-0
+                        rounded-lg
+                        text-[11px]
+                        font-bold
+                        transition
+                        hover:scale-105
+                        ${faixa.cell}
+                        ${selecionada ? faixa.selected : "opacity-80 hover:opacity-100"}
+                      `}
+                    >
+                      {negativa ? "-" : "+"}
+                      {faixa.pontos}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+
+        </div>
+      </div>
+
+      <div className="flex justify-between text-[10px] text-gray-400 px-1">
+        <span>↑ {rotuloLinha}</span>
+        <span>{rotuloColuna} →</span>
+      </div>
 
     </div>
   );
